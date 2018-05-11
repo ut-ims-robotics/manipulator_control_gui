@@ -1,0 +1,20 @@
+<library path="lib/librqt_manipulator_dashboard">
+  <class name="ManipulatorDashboard" type="manipulator_control_gui.manipulator_dashboard.ManipulatorDashboard" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Dashboard for controlling manipulators
+    </description>
+    <qtgui>
+      <!-- optional grouping...
+      <group>
+        <label>Group</label>
+      </group>
+      <group>
+        <label>Subgroup</label>
+      </group>
+      -->ManipulatorDashboard
+      <label>ManipulatorDashboard</label>
+      <icon type="theme">system-help</icon>
+      <statustip>Dashboard for controlling manipulators</statustip>
+    </qtgui>
+  </class>
+</library>
