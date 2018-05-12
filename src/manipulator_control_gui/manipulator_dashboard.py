@@ -49,7 +49,12 @@ class ManipulatorDashboard(Plugin):
 
     def init_signals(self):
         self._widget.damping_slider.valueChanged.connect(self.damping_changed)
+        self._widget.stiffness_slider.valueChanged.connect(self.stiffness_changed)
+        self._widget.max_velocity_slider.valueChanged.connect(self.max_velocity_changed)
+        self._widget.max_force_slider.valueChanged.connect(self.max_force_changed)
+        self._widget.max_path_dev_slider.valueChanged.connect(self.max_path_deviation_changed)
         self._widget.dimension_dropdown.currentIndexChanged.connect(self.dimension_changed)
+        self._widget.control_law_dropdown.currentIndexChanged.connect(self.control_law_changed)
 
     def init_gui_elements(self):
         self._widget.dimension_dropdown.addItem("X")
@@ -59,13 +64,30 @@ class ManipulatorDashboard(Plugin):
         self._widget.dimension_dropdown.addItem("RY")
         self._widget.dimension_dropdown.addItem("RZ")
 
+        self._widget.control_law_dropdown.addItem("Disabled")
+        self._widget.control_law_dropdown.addItem("Compliant move")
+        self._widget.control_law_dropdown.addItem("Follower")
+        self._widget.control_law_dropdown.addItem("Spring")
+
+    def set_value(self, dimension, value, orig_value):
+        return value if dimension == self.active_dimension else orig_value
+
     def control_law_changed(self):
-        self.direction_control_laws.x.type = ControlLaw.TYPE_UNKNOWN
-        self.direction_control_laws.y.type = ControlLaw.TYPE_COMPLIANT_MOVE
-        self.direction_control_laws.z.type = ControlLaw.TYPE_SPRING
-        self.direction_control_laws.rx.type = ControlLaw.TYPE_UNKNOWN
-        self.direction_control_laws.ry.type = ControlLaw.TYPE_UNKNOWN
-        self.direction_control_laws.rz.type = ControlLaw.TYPE_UNKNOWN
+        control_law_dict = {'Disabled' : ControlLaw.TYPE_UNKNOWN,
+                   'Compliant move' : ControlLaw.TYPE_COMPLIANT_MOVE,
+                   'Follower' : ControlLaw.TYPE_FOLLOWER,
+                   'Spring' : ControlLaw.TYPE_SPRING}
+        value = control_law_dict[self._widget.control_law_dropdown.currentText()]
+
+        self.direction_control_laws.x.type = self.set_value("X", value, self.direction_control_laws.x.type)
+        self.direction_control_laws.y.type = self.set_value("Y", value, self.direction_control_laws.y.type)
+        self.direction_control_laws.z.type = self.set_value("Z", value, self.direction_control_laws.z.type)
+        self.direction_control_laws.rx.type = self.set_value("RX", value, self.direction_control_laws.rx.type)
+        self.direction_control_laws.ry.type = self.set_value("RY", value, self.direction_control_laws.ry.type)
+        self.direction_control_laws.rz.type = self.set_value("RZ", value, self.direction_control_laws.rz.type)
+
+        self._widget.overview.setText("{}\n{}".format(self.direction_control_laws, self.set_cartesian_impedance))
+        rospy.loginfo(self.direction_control_laws)
 
     def dimension_changed(self):
         self.active_dimension = self._widget.dimension_dropdown.currentText()
@@ -74,55 +96,68 @@ class ManipulatorDashboard(Plugin):
     def damping_changed(self):
         value = self._widget.damping_slider.value()
 
-        if "R" in self.active_dimension:
-            self.set_cartesian_impedance.damping.rotational.x = value if (
-                    "X" in self.active_dimension) else self.set_cartesian_impedance.damping.rotational.x
-            self.set_cartesian_impedance.damping.rotational.y = value if (
-                    "Y" in self.active_dimension) else self.set_cartesian_impedance.damping.rotational.y
-            self.set_cartesian_impedance.damping.rotational.z = value if (
-                    "Z" in self.active_dimension) else self.set_cartesian_impedance.damping.rotational.z
-        else:
-            self.set_cartesian_impedance.damping.translational.x = value if (
-                    "X" in self.active_dimension) else self.set_cartesian_impedance.damping.translational.x
-            self.set_cartesian_impedance.damping.translational.y = value if (
-                    "Y" in self.active_dimension) else self.set_cartesian_impedance.damping.translational.y
-            self.set_cartesian_impedance.damping.translational.z = value if (
-                    "Z" in self.active_dimension) else self.set_cartesian_impedance.damping.translational.z
-
-        rospy.loginfo("Damping changed")
-        rospy.loginfo(self.set_cartesian_impedance.damping)
-
-    def max_velocity_changed(self):
-        self.set_cartesian_impedance.max_cart_vel.set.linear.x = 0.05
-        self.set_cartesian_impedance.max_cart_vel.set.linear.y = 0.05
-        self.set_cartesian_impedance.max_cart_vel.set.linear.z = 0.05
-        self.set_cartesian_impedance.max_cart_vel.set.angular.x = 0.0
-        self.set_cartesian_impedance.max_cart_vel.set.angular.y = 0.0
-        self.set_cartesian_impedance.max_cart_vel.set.angular.z = 0.0
-
-    def max_control_force_changed(self):
-        self.set_cartesian_impedance.max_ctrl_force.set.force.x = 25.0
-        self.set_cartesian_impedance.max_ctrl_force.set.force.y = 25.0
-        self.set_cartesian_impedance.max_ctrl_force.set.force.z = 25.0
-        self.set_cartesian_impedance.max_ctrl_force.set.torque.x = 25.0
-        self.set_cartesian_impedance.max_ctrl_force.set.torque.y = 25.0
-        self.set_cartesian_impedance.max_ctrl_force.set.torque.z = 25.0
-
-    def max_path_deviation_changed(self):
-        self.set_cartesian_impedance.max_path_deviation.translation.x = 0.02
-        self.set_cartesian_impedance.max_path_deviation.translation.y = 0.15
-        self.set_cartesian_impedance.max_path_deviation.translation.z = 0.2  # Change this to edit distance from door
-        self.set_cartesian_impedance.max_path_deviation.rotation.z = 0.0
-        self.set_cartesian_impedance.max_path_deviation.rotation.z = 0.0
-        self.set_cartesian_impedance.max_path_deviation.rotation.z = 0.0
+        self.set_cartesian_impedance.damping.rotational.x = self.set_value("RX", value,
+                                                                           self.set_cartesian_impedance.damping.rotational.x)
+        self.set_cartesian_impedance.damping.rotational.y = self.set_value("RY", value,
+                                                                           self.set_cartesian_impedance.damping.rotational.y)
+        self.set_cartesian_impedance.damping.rotational.z = self.set_value("RZ", value,
+                                                                           self.set_cartesian_impedance.damping.rotational.z)
+        self.set_cartesian_impedance.damping.translational.x = self.set_value("X", value,
+                                                                              self.set_cartesian_impedance.damping.translational.x)
+        self.set_cartesian_impedance.damping.translational.y = self.set_value("Y", value,
+                                                                              self.set_cartesian_impedance.damping.translational.y)
+        self.set_cartesian_impedance.damping.translational.z = self.set_value("Z", value,
+                                                                              self.set_cartesian_impedance.damping.translational.z)
+        self._widget.current_damping.setText("Damping: {}".format(value))
 
     def stiffness_changed(self):
-        self.set_cartesian_impedance.stiffness.translational.x = 10.0
-        self.set_cartesian_impedance.stiffness.translational.y = 0.0
-        self.set_cartesian_impedance.stiffness.translational.z = 10.0
-        self.set_cartesian_impedance.stiffness.rotational.x = 0.0
-        self.set_cartesian_impedance.stiffness.rotational.y = 0.0
-        self.set_cartesian_impedance.stiffness.rotational.z = 0.0
+        value = self._widget.stiffness_slider.value()
+
+        self.set_cartesian_impedance.stiffness.translational.x = self.set_value("X", value, self.set_cartesian_impedance.stiffness.translational.x)
+        self.set_cartesian_impedance.stiffness.translational.y = self.set_value("Y", value, self.set_cartesian_impedance.stiffness.translational.y)
+        self.set_cartesian_impedance.stiffness.translational.z = self.set_value("Z", value, self.set_cartesian_impedance.stiffness.translational.z)
+        self.set_cartesian_impedance.stiffness.rotational.x = self.set_value("RX", value, self.set_cartesian_impedance.stiffness.rotational.x)
+        self.set_cartesian_impedance.stiffness.rotational.y = self.set_value("RY", value, self.set_cartesian_impedance.stiffness.rotational.y)
+        self.set_cartesian_impedance.stiffness.rotational.z = self.set_value("RZ", value, self.set_cartesian_impedance.stiffness.rotational.z)
+
+        self._widget.current_stiffness.setText("Stiffness: {}".format(value))
+
+    def max_velocity_changed(self):
+        value = self._widget.max_velocity_slider.value() / 1000.0
+
+        self.set_cartesian_impedance.max_cart_vel.set.linear.x = self.set_value("X", value, self.set_cartesian_impedance.max_cart_vel.set.linear.x)
+        self.set_cartesian_impedance.max_cart_vel.set.linear.y = self.set_value("Y", value, self.set_cartesian_impedance.max_cart_vel.set.linear.y)
+        self.set_cartesian_impedance.max_cart_vel.set.linear.z = self.set_value("Z", value, self.set_cartesian_impedance.max_cart_vel.set.linear.z)
+        self.set_cartesian_impedance.max_cart_vel.set.angular.x = self.set_value("RX", value, self.set_cartesian_impedance.max_cart_vel.set.angular.x)
+        self.set_cartesian_impedance.max_cart_vel.set.angular.y = self.set_value("RY", value, self.set_cartesian_impedance.max_cart_vel.set.angular.y)
+        self.set_cartesian_impedance.max_cart_vel.set.angular.z = self.set_value("RZ", value, self.set_cartesian_impedance.max_cart_vel.set.angular.z)
+
+        self._widget.current_max_velocity.setText("Max velocity: {}".format(value))
+
+    def max_force_changed(self):
+        value = self._widget.max_force_slider.value()
+
+        self.set_cartesian_impedance.max_ctrl_force.set.force.x = self.set_value("X", value, self.set_cartesian_impedance.max_ctrl_force.set.force.x)
+        self.set_cartesian_impedance.max_ctrl_force.set.force.y = self.set_value("Y", value, self.set_cartesian_impedance.max_ctrl_force.set.force.y)
+        self.set_cartesian_impedance.max_ctrl_force.set.force.z = self.set_value("Z", value, self.set_cartesian_impedance.max_ctrl_force.set.force.z)
+        self.set_cartesian_impedance.max_ctrl_force.set.torque.x = self.set_value("RX", value, self.set_cartesian_impedance.max_ctrl_force.set.torque.x)
+        self.set_cartesian_impedance.max_ctrl_force.set.torque.y = self.set_value("RY", value, self.set_cartesian_impedance.max_ctrl_force.set.torque.y)
+        self.set_cartesian_impedance.max_ctrl_force.set.torque.z = self.set_value("RZ", value, self.set_cartesian_impedance.max_ctrl_force.set.torque.z)
+
+        self._widget.current_max_force.setText("Max force: {}".format(value))
+
+    def max_path_deviation_changed(self):
+        value = self._widget.max_path_dev_slider.value() / 1000.0
+
+        self.set_cartesian_impedance.max_path_deviation.translation.x = self.set_value("X", value, self.set_cartesian_impedance.max_path_deviation.translation.x)
+        self.set_cartesian_impedance.max_path_deviation.translation.y = self.set_value("Y", value, self.set_cartesian_impedance.max_path_deviation.translation.y)
+        self.set_cartesian_impedance.max_path_deviation.translation.z = self.set_value("Z", value, self.set_cartesian_impedance.max_path_deviation.translation.z)
+
+        self.set_cartesian_impedance.max_path_deviation.rotation.x = self.set_value("RX", value, self.set_cartesian_impedance.max_path_deviation.rotation.x)
+        self.set_cartesian_impedance.max_path_deviation.rotation.y = self.set_value("RY", value, self.set_cartesian_impedance.max_path_deviation.rotation.y)
+        self.set_cartesian_impedance.max_path_deviation.rotation.z = self.set_value("RZ", value, self.set_cartesian_impedance.max_path_deviation.rotation.z)
+
+        self._widget.current_max_path_dev.setText("Max path deviation: {}".format(value))
 
     def send_service(self):
         try:
